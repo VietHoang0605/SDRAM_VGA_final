@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8">
+    <title>Báo cáo Kỹ thuật SDRAM VGA</title>
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        /* ================== THIẾT KẾ MODERN DARK / GLASSMORPHISM ================== */
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --text-main: #cbd5e1;
+            --text-heading: #f8fafc;
+            --accent: #38bdf8;
+            --border: #334155;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 40px 20px;
+            line-height: 1.8;
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(56, 189, 248, 0.05) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(129, 140, 248, 0.05) 0px, transparent 50%);
+            background-attachment: fixed;
+        }
+        
+        #content {
+            max-width: 950px;
+            margin: 0 auto;
+            background: rgba(30, 41, 59, 0.8);
+            backdrop-filter: blur(16px);
+            padding: 60px 80px;
+            border-radius: 24px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        /* Typography & Headings */
+        h1, h2, h3, h4 {
+            color: var(--text-heading);
+            font-weight: 700;
+            margin-top: 2.5em;
+            margin-bottom: 1em;
+            line-height: 1.3;
+        }
+        
+        h1 {
+            font-size: 2.2rem;
+            text-align: center;
+            background: linear-gradient(135deg, #38bdf8, #818cf8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-top: 0;
+            margin-bottom: 1.5em;
+        }
+        
+        h2 {
+            font-size: 1.5rem;
+            border-bottom: 2px solid var(--border);
+            padding-bottom: 12px;
+            color: var(--accent);
+            text-transform: uppercase;
+        }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            margin: 35px 0;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+        }
+        th, td {
+            padding: 16px 24px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+        th {
+            background-color: rgba(15, 23, 42, 0.6);
+            color: var(--accent);
+            font-weight: 600;
+        }
+        tr:last-child td { border-bottom: none; }
+        tr:nth-child(even) { background-color: rgba(255, 255, 255, 0.02); }
+
+        /* Code Blocks */
+        pre {
+            background-color: #0f172a;
+            padding: 20px 25px;
+            border-radius: 12px;
+            overflow-x: auto;
+            border: 1px solid var(--border);
+            font-family: 'JetBrains Mono', Consolas, monospace;
+            font-size: 0.95rem;
+        }
+        code {
+            font-family: 'JetBrains Mono', Consolas, monospace;
+            font-variant-ligatures: none;
+            background: rgba(56, 189, 248, 0.1);
+            color: var(--accent);
+            padding: 3px 6px;
+            border-radius: 6px;
+            font-size: 0.9em;
+        }
+        pre code {
+            background: none;
+            color: #e2e8f0;
+            padding: 0;
+        }
+
+        /* Blockquotes */
+        blockquote {
+            margin: 35px 0;
+            padding: 20px 25px;
+            background: rgba(56, 189, 248, 0.05);
+            border-left: 4px solid var(--accent);
+            border-radius: 0 12px 12px 0;
+            color: #94a3b8;
+        }
+        blockquote strong { color: var(--accent); }
+        
+        /* Mermaid Diagram */
+        .mermaid {
+            background: #ffffff;
+            padding: 30px;
+            border-radius: 16px;
+            margin: 40px 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            position: relative;
+            cursor: zoom-in;
+            transition: transform 0.3s ease;
+        }
+        .mermaid::before {
+            content: '🔍 Click để phóng to';
+            position: absolute;
+            top: -15px;
+            right: 20px;
+            background: var(--accent);
+            color: #0f172a;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: bold;
+        }
+        .mermaid:hover { transform: translateY(-5px); }
+        .mermaid svg { max-width: 100%; height: auto; }
+
+        /* ================== SIMULATOR CSS ================== */
+        .pc-simulator-container {
+            flex-direction: column; align-items: center; margin: 0;
+            background: rgba(15, 23, 42, 0.6); padding: 20px; border-radius: 20px;
+            border: 1px solid var(--border); box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
+            transform: scale(0.75); transform-origin: center top;
+        }
+        .pc-monitor {
+            width: 640px; height: 480px; background-color: #000;
+            border: 20px solid #111; border-radius: 10px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.8), inset 0 0 10px rgba(0,0,0,0.5); 
+            position: relative; overflow: hidden;
+        }
+        .pc-stand { width: 120px; height: 40px; background: #111; }
+        .pc-base { width: 250px; height: 20px; background: #000; border-radius: 10px 10px 0 0; }
+        
+        .screen-content {
+            width: 100%; height: 100%; background-color: #000;
+            display: flex; justify-content: center; align-items: flex-end; padding-bottom: 20px;
+            color: #fff; font-size: 18px; font-weight: bold; text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+            background-size: cover; background-position: center; background-repeat: no-repeat;
+            transition: all 0.3s ease;
+        }
+        
+        .stage-1 { background-color: #000; background-image: none; }
+        .stage-2 { background-image: url('images/stage2.jpg'); }
+        .stage-3 { background-image: url('images/stage3.jpg'); }
+        .stage-4 { background-image: url('images/stage4.jpg'); }
+        .stage-5 { background-image: url('images/stage5.jpg'); }
+        .stage-bonus { background-image: url('images/bonus.jpg'); }
+        .stage-final { background-image: url('images/media_1789294590576.jpg'); }
+
+        .pc-controls { margin-top: 30px; display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; max-width: 750px;}
+        .pc-btn {
+            padding: 10px 18px; border: 1px solid var(--border); border-radius: 8px; font-size: 0.95rem;
+            background-color: #1e293b; color: var(--text-main); cursor: pointer; font-weight: 600;
+            transition: all 0.2s; box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        .pc-btn:hover { background-color: #334155; color: #fff; transform: translateY(-2px); }
+        .pc-btn.active { background-color: var(--accent); color: #0f172a; border-color: var(--accent); box-shadow: 0 0 15px rgba(56, 189, 248, 0.4); }
+        .sim-text-badge { background: rgba(0,0,0,0.8); padding: 8px 16px; border-radius: 6px; text-align: center; border: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(4px);}
+        
+        /* Navigation Tabs */
+        .app-nav {
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(12px);
+            padding: 15px;
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            border-bottom: 1px solid var(--border);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+            margin: -40px -20px 40px -20px; /* Bù lại padding của body */
+        }
+        .nav-btn {
+            background: #1e293b;
+            color: var(--text-main);
+            border: 1px solid var(--border);
+            padding: 12px 24px;
+            border-radius: 30px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: 'Inter', sans-serif;
+        }
+        .nav-btn:hover {
+            background: #334155;
+            color: #fff;
+            transform: translateY(-2px);
+        }
+        .nav-btn.active {
+            background: var(--accent);
+            color: #0f172a;
+            border-color: var(--accent);
+            box-shadow: 0 0 20px rgba(56, 189, 248, 0.5);
+        }
+        
+        #view-simulator {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 0;
+            animation: fadeIn 0.5s ease;
+        }
+        
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    </style>
+
+    <!-- Thư viện cơ bản -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@9.4.3/dist/mermaid.min.js"></script>
+    <script>
+        window.MathJax = { tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] }, startup: { typeset: false } };
+    </script>
+    <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+</head>
+<body>
+    <!-- Thanh điều hướng Tab -->
+    <div class="app-nav">
+        <button id="btn-sim" class="nav-btn active" onclick="switchView('sim')">🎮 Trình Giả Lập VGA</button>
+        <button id="btn-report" class="nav-btn" onclick="switchView('report')">📄 Báo Cáo Kỹ Thuật</button>
+    </div>
+
+    <!-- THẾ GIỚI 1: TRÌNH GIẢ LẬP -->
+    <div id="view-simulator">
+        <!-- Simulator Container được kéo ra ngoài khỏi textarea để JS không bị block -->
+        <div class="pc-simulator-container" id="sim-container" style="display: flex;">
+        <h2 style="margin-top:0; margin-bottom:10px; color:var(--text-heading); text-align:center; border:none;">🖥️ Trình giả lập Màn hình VGA</h2>
+        <div class="pc-monitor">
+            <div id="sim-screen" class="screen-content stage-1">
+                <div id="sim-text" class="sim-text-badge">Chặng 1: Màn hình đen</div>
+            </div>
+        </div>
+        <div class="pc-stand"></div>
+        <div class="pc-base"></div>
+
+        <div class="pc-controls">
+            <button class="pc-btn active" onclick="setSimStage('1', this)">Chặng 1</button>
+            <button class="pc-btn" onclick="setSimStage('2', this)">Chặng 2</button>
+            <button class="pc-btn" onclick="setSimStage('3', this)">Chặng 3</button>
+            <button class="pc-btn" onclick="setSimStage('4', this)">Chặng 4</button>
+            <button class="pc-btn" onclick="setSimStage('5', this)">Chặng Cuối</button>
+            <button class="pc-btn" onclick="setSimStage('bonus', this)">Bonus</button>
+            <button class="pc-btn" onclick="setSimStage('final', this)">Hoàn thiện</button>
+        </div>
+    </div>
+    </div> <!-- End of view-simulator -->
+
+    <!-- THẾ GIỚI 2: BÁO CÁO -->
+    <div id="view-report" style="display: none;">
+        <div id="content"></div>
+
+    <!-- NỘI DUNG MARKDOWN GỐC -->
+    <textarea id="md-source" style="display:none;">
+# BÁO CÁO KỸ THUẬT TOÀN DIỆN: DỰ ÁN SDRAM VGA VIDEO FRAMEBUFFER
+**Hệ thống Streaming Ảnh 640x480 @ 60Hz qua SDRAM và VGA trên KIT Terasic DE1**
+
+> [!NOTE]
+> Báo cáo này tổng hợp lại kiến trúc hệ thống, phân tích sâu về bản chất vật lý của SDRAM, và chi tiết hóa 4 chặng gỡ lỗi (debug) sinh tử để đưa hệ thống từ chỗ màn hình tối thui đến khi hiển thị một bức ảnh hoàn hảo.
+
+---
+
+## PHẦN 1: MỔ XẺ SDRAM VÀ NHỮNG BẤT TIỆN "CHÍ MẠNG"
+Để hiểu tại sao hệ thống lại gặp vô vàn lỗi hiểm hóc như vậy trong quá trình kiểm tra, chúng ta cần lật lại bản chất vật lý của hai loại chip nhớ: SRAM và SDRAM.
+
+### 1. Tại sao SDRAM lại là "Ác mộng" so với SRAM?
+
+| Đặc tả | SRAM (Project 1) | SDRAM (Project 2) |
+| :--- | :--- | :--- |
+| **Cấu trúc ô nhớ** | 6 Transistor (Mạch lật Bistable) | 1 Transistor + 1 Tụ điện siêu nhỏ (1T1C) |
+| **Bảo toàn dữ liệu** | Giữ vĩnh viễn khi có điện | Rò điện liên tục, phải tự động sạc lại (Refresh) sau vài mili-giây |
+| **Cách thức truy xuất**| Ngẫu nhiên (Random Access), độc lập | Khối (Burst Access), phụ thuộc Máy trạng thái phức tạp |
+| **Độ trễ đọc/ghi** | Đều đặn 10-20ns cho mọi ô nhớ | Rất chậm khi mở/đóng hàng, nhưng cực nhanh khi xả Burst |
+
+> [!NOTE]
+> **Góc nhìn thực tế: Sự khác biệt kinh hoàng về độ phức tạp**
+> Để dễ hình dung, hãy tưởng tượng SRAM và SDRAM như hai cách lưu trữ hàng hóa:
+> 
+> **SRAM (Project 1) - Chiếc tủ thép kiên cố:** 
+> SRAM giống như một cái tủ đồ khổng lồ với hàng triệu ngăn kéo đóng kín. Mỗi ngăn kéo chứa dữ liệu và có một địa chỉ duy nhất. Khi cần lấy đồ, bạn chỉ việc cầm 1 tờ giấy địa chỉ đưa cho bác bảo vệ. Bác ấy đi thẳng tới đúng ngăn đó, kéo ra và đưa đồ cho bạn ngay lập tức. Đồ đạc trong này được giữ vĩnh viễn không bao giờ suy suyển.
+> 
+> **SDRAM (Project 2) - Cánh đồng xô nước thủng:** 
+> SDRAM thì khác hoàn toàn. Dữ liệu ở đây không được chứa trong tủ thép, mà chứa trong hàng triệu chiếc xô nước bị thủng đáy (1 Transistor + 1 Tụ điện) được xếp thành từng hàng rào dài. Nước trong xô cứ rỉ ra liên tục. Để quản lý cái bãi chứa kỳ quái này, hệ thống phải làm 3 việc cực kỳ rườm rà:
+> - **Bảo trì kho (Auto-Refresh):** Vì xô lủng, bác bảo vệ phải liên tục xách vòi đi bơm bù nước vào các xô sắp cạn mỗi $15 \ \mu\text{s}$. Lúc bác ấy đi bơm nước thì không ai được phép lấy hàng!
+> - **Lấy hàng 2 giai đoạn (Row/Col Latency):** Bạn không được đưa 1 địa chỉ, mà phải cầm 2 tờ giấy: Hàng (Row) và Cột (Col). Đầu tiên, bạn đưa tờ "Hàng" cho bác bảo vệ (`ACTIVE`). Bác ấy lật đật chạy vào kho, lôi tuột cả một dãy chứa 256 cái xô nước ra ngoài bãi đệm. Sau đó, bác ấy mới hớt hải chạy quay lại chỗ bạn để lấy tờ giấy "Cột" (`READ`) nhằm xác định chính xác cái xô bạn cần tìm. Quá trình này vô cùng mất thời gian (`CAS Latency`).
+> - **Xả lũ (Burst Mode):** Để bù đắp cho khoảng thời gian chờ bác bảo vệ chạy đi chạy lại vã mồ hôi, một khi vòi đã mở, bác ấy sẽ không chỉ đưa cho bạn 1 xô. Bác ấy sẽ úp ngược cả 256 cái xô trên dãy đó đổ ầm ầm ra ngoài, tạo thành một dòng thác dữ liệu 16-bit chảy liên thanh không ngừng nghỉ!
+
+---
+
+### 2. Phân tích hệ thống qua lăng kính "Nhà máy SDRAM"
+
+```mermaid
+graph LR
+    subgraph PC_SIDE ["1. Giao tiếp UART (Ghi)"]
+        PC["PC (Python)"] -- "Ảnh 640x480" --> URX["uart_rx.v"]
+        URX -- "8-bit" --> PACKER["FSM Ghép 2-Byte"]
+        PACKER -- "16-bit" --> WFIFO["W-FIFO (32)"]
+    end
+
+    subgraph ARBITER_CORE ["2. Trọng tài (Điều tiết băng thông)"]
+        WFIFO -- "w_fifo_data" --> ARB["sdram_arbiter.v"]
+        ARB -- "r_fifo_data" --> RFIFO["R-FIFO (1024)"]
+        ARB -. "Flush Signal" .-> RFIFO
+    end
+
+    subgraph SDRAM_CORE ["3. Mạch lõi nhớ"]
+        ARB <== "sys_addr / req" ==> CTRL["sdram_controller.v (Latched)"]
+        CTRL <== "Khối Burst 256" ==> CHIP[("Chip SDRAM (8MB)")]
+    end
+
+    subgraph VGA_OUTPUT ["4. Mạch hiển thị (Đọc)"]
+        RFIFO -- "25MHz ce" --> OUT_REG["Output Registers (Khử Glitch)"]
+        SYNC["vga_sync.v"] -- "Tọa độ" --> OUT_REG
+        OUT_REG -- "RGB 4:4:4" --> DAC["VGA DAC"]
+        DAC --> SCREEN["Màn hình 640x480"]
+    end
+```
+
+**1. Khu vực Nhập Nguyên Liệu (Đường mòn RS-232)**
+- **Nhà cung cấp (PC/Python):** Ở xa tít mù tắp, chở nguyên vật liệu đến bằng những chiếc xe bò lọc cọc (tốc độ UART 115,200 bps). Mỗi xe chỉ chở được đúng 1 nửa viên gạch (8-bit).
+- **Trạm Tiếp nhận & Đóng gói (UART_RX + FSM):** Gồm một ông bảo vệ thu hàng và một cậu công nhân. Cứ nhận đủ 2 nửa viên gạch (hai lần 8-bit), cậu công nhân sẽ lấy băng dính quấn lại thành một "Kiện hàng tiêu chuẩn 16-bit" (1 pixel hoàn chỉnh).
+- **Bãi tập kết Nhập (W-FIFO - Sức chứa 32 kiện):** Đây là khu vực sân bãi có 2 cửa (Dual-port). Một cửa mở ra đường cái cho cậu công nhân ném kiện hàng vào. Một cửa hướng vào trong công ty chờ mang đi cất. Dù sân rất bé, nhưng vì xe bò chở hàng tới rất chậm nên hiếm khi bị quá tải.
+
+**2. Khu vực Xuất Hàng Tiêu Thụ (Băng chuyền VGA)**
+- **Bãi tập kết Xuất (R-FIFO - Sức chứa 1024 kiện):** Một sân bãi cực lớn cũng có 2 cửa. Cửa trong chờ đổ hàng vào, cửa ngoài nối thẳng với băng chuyền.
+- **Khách hàng V.I.P (VGA_Sync):** Một vị khách hàng cực kỳ khắt khe, đứng há miệng ở cửa ra của R-FIFO. Cứ đúng nhịp 25MHz (rất nhanh) là vị khách này giật 1 kiện hàng mang ra "triển lãm" (Màn hình). Khách hàng này không biết chờ đợi, nếu đến nhịp mà Bãi Xuất không có hàng (Tràn FIFO / Starvation), khách sẽ nổi điên vứt ra một cục màu đen thui (sọc rác màn hình).
+- **Đội ngũ KCS - Kiểm tra chất lượng (Output Registers):** Chỗ này chính là cái chốt D-FlipFlop mà ta vừa fix. Thay vì để khách hàng giật hàng trực tiếp (dễ dính bụi bẩn tổ hợp/glitches gây nhiễu sọc), KCS sẽ ôm giữ kiện hàng lại đúng 1 nhịp đồng hồ, rũ sạch mọi rác rưởi lỏng lẻo, rồi mới đưa cho khách. Nhờ vậy bức ảnh triển lãm luôn mượt mà.
+
+**3. Bộ máy Quản lý & Vận hành Cốt lõi**
+- **Giám đốc Điều hành (Trọng tài Arbiter):** Người quyền lực nhất công ty. Giám đốc có cái nhìn bao quát toàn bộ 2 bãi tập kết.
+  - Thấy Bãi Nhập (W-FIFO) có hàng, Giám đốc gọi: *"Ê, cất hàng vào kho đi!"* (`Write_Req`).
+  - Thấy Bãi Xuất (R-FIFO) vơi xuống dưới ngưỡng 768 kiện, Giám đốc hét: *"Ê, lấy thêm hàng ra nhanh lên không khách nó chửi bây giờ!"* (`Read_Req`).
+- **Nhà kho Khổng lồ (Chip SDRAM ngoài):** Sức chứa vĩ đại (8MB), nhưng lại rất rẻ tiền nên thiết kế cửa nẻo siêu chán: Chỉ có đúng 1 cửa ra vào (Single-port). Không thể vừa cất hàng vừa lấy hàng cùng lúc. Hơn nữa, ổ khóa thủ tục rất rườm rà, gọi nhân viên kho phải dóng dạc đọc Row, Bank, Column rồi chờ đúng 3 nhịp (`CAS Latency`) nhân viên kho mới thò mặt ra đưa hàng.
+- **Ông Tổ trưởng Kho (SDRAM Controller):** Một người máy móc, tay to, chuyên chạy việc vặt. Chỉ nhận lệnh duy nhất từ Giám đốc Arbiter. Ông Tổ trưởng cầm chìa khóa chạy ra Nhà kho SDRAM.
+  - Cứ mỗi lần mở được cửa kho, ông ấy dùng xe lu hốt đúng 1 lèo 256 kiện hàng (`Burst Length`) rồi chạy ào ra đổ ầm ầm vào Bãi Xuất (R-FIFO).
+  - Ông này có một nghiệp vụ bí mật là `AUTO_REFRESH` (Bảo trì chống dột cho Nhà kho). Cứ mỗi 15 micro-giây, ông ấy phải xách xô đi tát nước bảo trì kho 1 lần (tốn 5 nhịp). Nếu Giám đốc ưu tiên việc bảo trì cao hơn việc xuất hàng (cái lỗi cũ của chúng ta), ông Tổ trưởng sẽ bỏ mặc khách hàng VGA gào thét để đi tát nước!
+
+> [!TIP]
+> **Dòng chảy (Dataflow) thực tế:** Nguyên liệu bò chậm rì vào (UART) $\rightarrow$ Gói thành 16-bit $\rightarrow$ Đợi ở Bãi W-FIFO $\rightarrow$ Giám đốc thấy vậy bảo cất $\rightarrow$ Tổ trưởng gom cất vào Nhà kho SDRAM. Cùng lúc đó, Khách hàng VGA liên tục rút hàng từ Bãi R-FIFO. Khi Bãi R-FIFO vơi $\rightarrow$ Giám đốc thấy vậy bảo rút hàng $\rightarrow$ Tổ trưởng chạy ra Nhà kho SDRAM, chờ 3 nhịp mở khóa, xúc 256 kiện đổ ầm ầm vào Bãi R-FIFO. Khách hàng VGA tiếp tục rút qua tay KCS $\rightarrow$ Màn hình sáng ngời rực rỡ!
+
+### 3. Bốn bất tiện cốt lõi sinh ra hàng loạt lỗi hệ thống
+Chính cấu trúc **"1 Transistor + 1 Tụ điện"** của SDRAM đã đẻ ra những giới hạn vật lý bắt buộc chúng ta phải tuân theo, từ đó gây ra những khó khăn vô cùng lớn trong việc thiết kế mạch điều khiển:
+
+1. **Ác mộng Auto-Refresh (Nạp lại điện tích):** Tụ điện bị rò điện, nên cứ mỗi **$15.6 \ \mu\text{s}$**, SDRAM phải đóng băng mọi hoạt động đọc/ghi để tự sạc lại điện (Auto-Refresh). Nếu đúng lúc này màn hình VGA đang khát dữ liệu, nó sẽ không được phục vụ và sinh ra nhiễu/rác trên màn hình.
+2. **Độ trễ mở/đóng hàng (Row/Column Latency):** SDRAM giống như một thư viện. Muốn lấy 1 cuốn sách, bạn không thể bốc ngay (như SRAM) mà phải làm thủ tục: Kích hoạt hàng (`ACTIVE`) $\rightarrow$ Mất 2 chu kỳ. Yêu cầu cột (`READ`) $\rightarrow$ Đợi thêm 3 chu kỳ (`CAS Latency`). Lấy xong phải đóng lại (`PRECHARGE`) $\rightarrow$ Mất thêm 2 chu kỳ. Tổng cộng mất gần **10 chu kỳ clock** chỉ để lấy 1 pixel ngẫu nhiên.
+3. **Bắt buộc phải xả Burst (Burst Mode):** Để bù đắp độ trễ mở hàng, ta phải cấu hình SDRAM xả một đợt 256 pixel liên tục ở tốc độ cực cao (20ns/pixel). Sự mất cân bằng này (lúc thì ngâm quá lâu, lúc thì xả quá nhanh) buộc hệ thống phải có các hồ chứa (FIFO) rất sâu để trung hòa tốc độ với màn hình VGA (40ns/pixel).
+4. **Xung nhịp bị lệch pha (Phase Shift):** Chip SDRAM nằm độc lập trên bo mạch, tín hiệu phải đi qua hệ thống đường mạch đồng. Điều này sinh ra độ trễ. Để dữ liệu không bị lệch nhịp khi FPGA đọc, ta phải cấp cho SDRAM một xung nhịp đảo pha 180 độ (`~CLOCK_50`).
+
+---
+
+## PHẦN 2: HÀNH TRÌNH DEBUG - 4 CHẶNG ĐƯỜNG VƯỢT ẢI
+
+Quá trình tích hợp SDRAM với VGA không hề suôn sẻ. Dưới đây là biên niên sử chi tiết về 4 chặng lỗi từ lúc hệ thống tê liệt hoàn toàn đến khi bức ảnh hiển thị hoàn hảo.
+
+### Chặng 1: Màn hình tối thui (VGA không hoạt động)
+- **Biểu hiện:** Sau khi nạp code, màn hình VGA đen kịt hoàn toàn. Đèn LED trên màn hình nhấp nháy báo trạng thái Standby (No Signal - Không nhận được tín hiệu quét).
+- **Nguyên nhân:** Khối đếm tọa độ pixel (`vga_sync.v`) cần một xung nhịp Enable 25MHz để hoạt động. Tuy nhiên, ở phiên bản đầu, chân `.ce()` của module này bị bỏ trống không kết nối. Mạch bị thả nổi và ghim ở mức 0, khiến bộ đếm tọa độ ngang/dọc bị tê liệt hoàn toàn.
+- **Cách Fix:** Tạo một thanh ghi chia đôi xung nhịp `reg ce` (từ 50MHz xuống 25MHz) trong `top_module` và nối trực tiếp vào chân `.ce(ce)` của khối VGA Sync. Màn hình lập tức nhận được tín hiệu và chuyển sang trạng thái "Active Black" (sáng mờ, sẵn sàng hiển thị).
+
+### Chặng 2: Chết lâm sàng - Deadlock hệ thống
+- **Biểu hiện:** Màn hình đã sáng mờ, cáp UART từ PC đã báo nạp thành công 100% dữ liệu, nhưng màn hình vẫn đen thui, không có bất kỳ điểm ảnh hay rác nào xuất hiện. 
+- **Nguyên nhân:** Bắt tay hụt (Handshake Deadlock) giữa khối Trọng tài (Arbiter) và Bộ điều khiển (SDRAM Controller). Khi Arbiter phất cờ yêu cầu Ghi (`sys_write_req`), Controller tiếp nhận và nhảy sang trạng thái `ACTIVE_ROW` (mất vài chu kỳ). Nhưng ngay lúc đó, Arbiter lại vội vã hạ cờ yêu cầu xuống. Tới lúc Controller chuyển sang trạng thái `WRITE_COL` và kiểm tra lại cờ thì thấy cờ đã mất. Controller bị kẹt vĩnh viễn ở trạng thái chờ lệnh, hệ thống "chết lâm sàng".
+- **Cách Fix:** Áp dụng nguyên tắc "Chốt lệnh" (Latching). Thêm các thanh ghi nội bộ (`is_write`, `latched_addr`, `latched_data`) vào bên trong SDRAM Controller. Ngay khi lệnh được nhận ở trạng thái `IDLE`, Controller tự lưu lại mọi thông tin vào thanh ghi của nó và xử lý tiếp mà không cần quan tâm đến tín hiệu từ Arbiter nữa.
+
+> [!NOTE]
+> **🔍 PHÂN TÍCH CHUYÊN SÂU VỀ BẪY TỬ THẦN (DEADLOCK)**
+> Lỗi này sinh ra do sự bất đồng bộ trong giao thức bắt tay (Handshake). Hãy xem vở kịch thực tế sau:
+> 1. **Nhịp Clock 1:** Trọng tài (Arbiter) giương cờ `write_req = 1`. FSM nhận lệnh ở trạng thái `IDLE`, hạ cờ `sys_ready = 0` và chuyển sang bước mở kho (`ACTIVE_ROW`).
+> 2. **Nhịp Clock 2:** Trọng tài thấy FSM đã không còn sẵn sàng (`sys_ready = 0`), bèn tự ý hạ cờ yêu cầu `write_req` xuống 0 và rút tín hiệu địa chỉ về.
+> 3. **Nhịp Clock 3:** Khi FSM mở kho xong và cần quyết định đi tiếp vào `WRITE_DATA` hay `READ_CMD`, nó nhìn ra kiểm tra cờ `write_req` thì... cờ đã mất! Cả 2 điều kiện rẽ nhánh đều bằng 0. FSM rơi vào vô định, mắc kẹt vĩnh viễn ở `ACTIVE_ROW`. 
+> 
+> **🛡️ Bí kíp Chốt lệnh (Latching):**
+> Nguyên tắc sống còn trong thiết kế số: *"Tuyệt đối không tin tưởng tín hiệu bên ngoài"*. Ngay tại trạng thái `IDLE`, FSM phải lập tức chép lại (Latch) mọi thông tin vào các thanh ghi nội bộ:
+> ```verilog
+> is_write <= write_req;
+> latched_addr <= sys_addr;
+> latched_data <= sys_data_in;
+> ```
+> Ở các trạng thái sau, FSM chỉ sử dụng các biến nội bộ này (`is_write`, `latched_addr`), phớt lờ hoàn toàn sự thay đổi của Trọng tài.
+
+### Chặng 3: Ảnh bị nhân 3 và co cụm ở một góc
+- **Biểu hiện:** Sau khi hệ thống thông bus, ảnh đã hiện lên nhưng chỉ chiếm khoảng 1/4 diện tích màn hình ở góc trên. Bức ảnh bị lặp lại (nhân 3 lần) theo chiều dọc, phần màn hình phía dưới hiển thị các pixel rác lộn xộn.
+- **Nguyên nhân:** Xung đột độ phân giải. Màn hình đang quét ở khung 640x480, nhưng file dữ liệu ảnh nạp từ PC chỉ có kích thước 320x240 (từ Project 1). Hậu quả là 1 dòng quét của màn hình (640) ngốn mất 2 dòng dữ liệu của ảnh. Bộ nhớ nhanh chóng bị cạn kiệt, con trỏ địa chỉ cuốn chiếu vòng lại gây lặp ảnh, và hiển thị phần RAM chưa có dữ liệu sinh ra rác.
+- **Cách Fix:** Nâng cấp toàn diện độ phân giải lên 640x480. 
+  1. Viết lại Script Python để resize và xuất file `.bin` với dung lượng chuẩn $640 \times 480 \times 2 = 614.4 \text{ KB}$.
+  2. Nới rộng giới hạn cuốn chiếu vòng lặp địa chỉ `write_addr` trong Arbiter từ `76,799` lên `307,199`.
+
+### Chặng 4: Bức ảnh bị chém làm đôi, sọc dọc và pixel rác
+- **Biểu hiện:** Ảnh đã to tràn viền 640x480, nhưng mắc 3 lỗi thị giác:
+  1. **Ảnh bị cắt dọc:** Bức ảnh bị chém làm 2 nửa theo chiều dọc (nửa to bên trái, nửa bé bên phải) và 2 nửa này bị tráo đổi vị trí cho nhau. 
+  2. **Pixel rác:** Có những chấm rác màu xuất hiện ngẫu nhiên.
+  3. **Sọc nhiễu:** Xuất hiện các dải sọc dọc mờ chạy từ trên xuống dưới.
+- **Nguyên nhân:**
+  1. **Lệch pha tọa độ ngang:** Khi quét đến cuối khung hình, màn hình có một quãng thời gian V-Blank (nghỉ ngơi lùi về đầu). Trong quãng nghỉ này, Arbiter vẫn tiếp tục đọc trước (Prefetch) dữ liệu từ SDRAM vào R-FIFO. Hậu quả là R-FIFO bị dư 512 pixel của khung hình mới, đẩy khung hình mới bị dịch phải 512 tọa độ, tạo ra một nửa to 512px và một nửa bé 128px (640-512).
+  2. **Tràn FIFO và Nhiễu mạch DAC:** R-FIFO chỉ sâu 512 là quá nhỏ, đôi lúc bị cạn sạch khiến dữ liệu ra DAC bị hụt (sinh pixel rác). Đồng thời, việc nối trực tiếp tín hiệu tổ hợp vào chân DAC vật lý (R-2R) sinh ra lỗi nhiễu chuyển mạch (Glitches), biểu hiện thành các sọc dọc mờ.
+  3. **UART trượt byte:** Nếu có nhiễu trên dây cáp UART, FSM ghép byte có thể bị lệch (ghép nửa sau của pixel này với nửa trước của pixel kia).
+- **Cách Fix:** Đánh tổng lực 4 giải pháp:
+  1. **V-Sync Flush:** Bắt một đường cờ `vsync_req` báo hiệu kết thúc khung, ra lệnh reset và xả sạch (Clear) toàn bộ R-FIFO.
+  2. **Tăng dung lượng FIFO:** Nâng độ sâu R-FIFO từ 512 lên 1024 từ (lớn hơn 1 dòng quét ngang 640) để dữ liệu dồi dào, triệt tiêu vi-trễ.
+  3. **Chốt DAC đầu ra:** Bọc các tín hiệu VGA Red/Green/Blue qua các thanh ghi D-FlipFlop (Output Registering) chạy chung `CLOCK_50` trước khi đẩy ra chân vật lý để khử nhiễu Glitch.
+     *Đoạn code minh họa kỹ thuật Output Registering đã áp dụng để cứu bức ảnh khỏi sọc nhiễu:*
+     ```verilog
+     // Thay vì dùng lệnh 'assign', ta chốt bằng vòng lặp Flip-Flop
+     always @(posedge CLOCK_50) begin
+         if (video_on) begin
+             vga_r_reg <= r_fifo_out_data[15:11]; // Đợi 1 nhịp để gọt sạch nhiễu
+             vga_g_reg <= r_fifo_out_data[10:5];
+             vga_b_reg <= r_fifo_out_data[4:0];
+         end else begin
+             vga_r_reg <= 5'd0;
+             vga_g_reg <= 6'd0;
+             vga_b_reg <= 5'd0;
+         end
+     end
+     ```
+  4. **UART Auto-Reset:** Viết cơ chế Timeout 50ms cho UART, tự động reset con trỏ địa chỉ về 0 nếu PC ngắt truyền, đảm bảo lần nạp nào cũng bắt đầu chuẩn từ Pixel 0.
+
+> [!TIP]
+> Kết quả: Bức ảnh hiển thị sắc nét, mượt mà, không sọc, không rác, đúng tỷ lệ khung hình. Một chiến thắng toàn diện!
+
+---
+
+### Chặng Cuối: Hiện tượng "Bóng ma" và Sự phân rã điện tích vật lý (Capacitor Charge Leakage)
+
+**1. Mô tả hiện tượng**
+Sau khi hoàn thiện toàn bộ mã nguồn Logic và tiến hành nạp lại cấu hình FPGA (Program .sof file), trên màn hình vẫn tiếp tục hiển thị bức ảnh của phiên làm việc trước đó mà chưa cần bất kỳ luồng dữ liệu truyền mới nào từ máy tính (UART). Tuy nhiên, bức ảnh "bóng ma" (Ghost Image) này bị suy hao chất lượng nghiêm trọng, xuất hiện hàng loạt đốm sai màu (sparkles) rải rác và các dải sọc nhiễu xẻ dọc khung hình. Khi truyền lại dữ liệu ảnh mới, mọi hiện tượng nhiễu lập tức biến mất và ảnh trở nên hoàn hảo.
+
+**2. Phân tích Nguyên nhân Vật lý**
+Hiện tượng này minh chứng rõ nét cho nguyên lý hoạt động cốt lõi của bộ nhớ SDRAM (Synchronous Dynamic RAM):
+- **Bản chất lưu trữ (Dynamic Storage):** Khác với bộ nhớ tĩnh (SRAM) sử dụng các chốt Flip-Flop, SDRAM lưu trữ từng bit dữ liệu (Logic 1 hoặc 0) dưới dạng điện tích bên trong các siêu tụ điện (Capacitors) vi mô.
+- **Sự rò rỉ điện tích (Charge Leakage):** Các tụ điện này có đặc tính tự nhiên là rò rỉ điện theo thời gian. Để dữ liệu không bị bốc hơi (từ Logic 1 sụt áp về Logic 0), khối SDRAM Controller bắt buộc phải liên tục gửi lệnh AUTO_REFRESH (thông thường là mỗi $15.625 \mu\text{s}$) để quét và sạc lại điện cho toàn bộ các ô nhớ.
+- **Quá trình gián đoạn Refresh:** Trong quá trình Quartus nạp lại cấu hình cho chip FPGA (mất khoảng 1 đến 2 giây), bộ điều khiển SDRAM Controller tạm thời bị tắt. Chu trình AUTO_REFRESH bị ngắt hoàn toàn.
+- **Sự phân rã dữ liệu:** Trong 2 giây bị "bỏ đói" đó, điện tích tại hàng triệu tụ điện bắt đầu rò rỉ. Tuy nhiên, thời gian 2 giây chưa đủ dài để toàn bộ điện áp xả cạn về mức 0, dẫn đến việc tàn dư của bức ảnh vẫn còn tồn tại. Do dung sai chế tạo và cấu trúc ma trận (Row/Column) của vi mạch, tốc độ rò rỉ điện tại các phân vùng là không đồng đều. Các ô nhớ bị rò rỉ dưới ngưỡng điện áp chuẩn sẽ bị vi mạch dịch sai thành bit 0 hoặc lật bit ngẫu nhiên, tạo ra các "vết rỗ" đốm màu và các dải sọc dọc trên màn hình.
+
+**3. Kết luận và Khắc phục**
+Đây không phải là lỗi thiết kế (Logic Bug) hay lỗi xung nhịp phần cứng (Hardware Timing/Ground Bounce), mà là đặc tính suy hao vật lý tất yếu của công nghệ DRAM khi bị cắt chu kỳ Refresh.
+- **Cách khắc phục:** Hệ thống hoạt động hoàn toàn chính xác. Để xóa bỏ hiện tượng "bóng ma", người dùng chỉ cần thực hiện cấp lại dòng dữ liệu mới (truyền ảnh qua giao thức UART). Dữ liệu mới sẽ nạp lại mức điện tích chuẩn cho toàn bộ các tụ điện, đưa chất lượng tín hiệu hình ảnh trở về trạng thái hoàn hảo 100%.
+
+## 💡 BÍ KÍP PHẦN CỨNG: THỦ THUẬT ĐẢO PHA CLOCK (INVERTED CLOCK)
+
+Khi thiết kế phần cứng với SDRAM, một trong những "cơn ác mộng" lớn nhất của các kỹ sư là vi phạm thời gian Setup và Hold (Setup/Hold time violations). Trên thực tế mạch in (PCB), đường truyền tín hiệu từ FPGA đến SDRAM có thể mất một khoảng thời gian trễ nhất định — ví dụ như độ trễ (delay) đường truyền lên tới 10ns! 
+
+Nếu FPGA và SDRAM cùng sử dụng chung một xung nhịp (clock) đồng pha, do độ trễ truyền dẫn này, dữ liệu từ FPGA khi đến được SDRAM có thể đã bị lệch nhịp. Kết quả là SDRAM sẽ đọc sai dữ liệu vì tín hiệu tại chân đầu vào của nó chưa kịp ổn định.
+
+**Giải pháp "nhỏ nhưng có võ":** `assign sdram_clk = ~clk;`
+
+Thay vì phải dùng các bộ PLL/MMCM phức tạp để căn chỉnh độ trễ pha (phase shift), chúng ta có thể sử dụng một thủ thuật vô cùng thanh lịch: **đảo pha xung nhịp**. 
+
+Bằng cách cung cấp cho SDRAM một xung nhịp ngược pha (lệch 180 độ) so với xung nhịp điều khiển bên trong FPGA, chúng ta tự động tạo ra một khoảng đệm thời gian "vàng" (bằng đúng nửa chu kỳ xung nhịp). Khoảng đệm này cho phép dữ liệu có đủ thời gian để "chạy" dọc theo đường mạch in, bù trừ hoàn hảo cho độ trễ 10ns, giúp tín hiệu hoàn toàn ổn định trước khi cạnh lên của xung nhịp tại SDRAM xuất hiện.
+
+Thủ thuật này không chỉ giúp triệt tiêu hoàn toàn lỗi Setup/Hold time một cách tinh tế mà còn cực kỳ tiết kiệm tài nguyên hệ thống trên FPGA! 🚀
+
+## 6. Chặng Bonus: Lệch thì CAS Latency (Mã Morse trên màn hình)
+
+- **Biểu hiện:** Sau khi xóa trắng màn hình, trên nền đen tĩnh lặng xuất hiện các đốm màu cam/đỏ xếp thành từng hàng đứt nét như mã Morse, lặp lại cực kỳ đều đặn.
+- **Nguyên nhân:** Khối SDRAM Controller chuyển sang trạng thái `READ_STREAM` và đọc dữ liệu chỉ sau 2 chu kỳ Clock (`delay_timer == 16'd2`), trong khi CAS Latency được cấu hình là 3. Do lấy mẫu quá sớm 1 chu kỳ, FPGA đọc phải tín hiệu lơ lửng (High-Z) trên đường truyền dữ liệu, dịch ra thành màu rác. Vì mỗi đợt Burst đọc 256 pixel, nên cứ cách đúng 256 pixel lại xuất hiện 1 điểm ảnh rác. Do chiều ngang màn hình (640) không chia hết cho 256, nên các điểm rác bị dịch chuyển tạo thành các đường chéo đứt nét.
+- **Cách Fix:** Trong khối `sdram_controller.v` (trạng thái `READ_CMD`), sửa điều kiện chờ từ `if(delay_timer == 16'd2)` thành `if(delay_timer == 16'd3)` để đợi SDRAM xuất dữ liệu ổn định rồi mới lấy mẫu.
+
+---
+
+## PHẦN 3: LỜI KẾT
+
+**Lời Kết:** SDRAM mang lại dung lượng khổng lồ so với SRAM, nhưng cái giá phải trả là sự phức tạp tột độ trong việc điều phối luồng dữ liệu (Dataflow) đa xung nhịp. Qua các chặng debug, chúng ta đã làm chủ được các kỹ thuật cốt lõi nhất của thiết kế số: Máy trạng thái, Giao tiếp bất đồng bộ, Bộ đệm đàn hồi (FIFO), và Xử lý tín hiệu chống nhiễu phần cứng.
+    </textarea>
+
+    <!-- Kịch bản điều khiển -->
+    <script>
+        // Javascript cho Simulator
+        function setSimStage(stage, btn) {
+            document.querySelectorAll('.pc-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+
+            const screen = document.getElementById('sim-screen');
+            const text = document.getElementById('sim-text');
+            screen.className = 'screen-content'; 
+
+            switch(stage) {
+                case '1':
+                    screen.classList.add('stage-1');
+                    text.innerText = 'Chặng 1: Màn hình đen';
+                    break;
+                case '2':
+                    screen.classList.add('stage-2');
+                    text.innerText = 'Chặng 2: Deadlock nhiễu rác';
+                    break;
+                case '3':
+                    screen.classList.add('stage-3');
+                    text.innerText = 'Chặng 3: Lặp ảnh, cắt dọc';
+                    break;
+                case '4':
+                    screen.classList.add('stage-4');
+                    text.innerText = 'Chặng 4: Rác và lỗi đồng bộ';
+                    break;
+                case '5':
+                    screen.classList.add('stage-5');
+                    text.innerText = 'Chặng Cuối: Ảnh bóng ma (Mất Refresh)';
+                    break;
+                case 'bonus':
+                    screen.classList.add('stage-bonus');
+                    text.innerText = 'Bonus: Mã Morse (CAS Latency)';
+                    break;
+                case 'final':
+                    screen.classList.add('stage-final');
+                    text.innerText = 'Hoàn thiện: Bức ảnh rực rỡ';
+                    break;
+            }
+        }
+
+        // 1. Render Markdown
+        let mdText = document.getElementById('md-source').value;
+        mdText = mdText.replace(/> \[!NOTE\]/g, '> **💡 GHI CHÚ QUAN TRỌNG:**');
+        mdText = mdText.replace(/> \[!TIP\]/g, '> **🏆 THÀNH QUẢ:**');
+        document.getElementById('content').innerHTML = marked.parse(mdText);
+
+        // 2. Chuẩn bị thẻ Mermaid (Chưa render SVG vội)
+        const mermaidCodes = document.querySelectorAll('code.language-mermaid');
+        mermaidCodes.forEach(code => {
+            const div = document.createElement('div');
+            div.className = 'mermaid';
+            div.textContent = code.textContent;
+            code.parentElement.replaceWith(div);
+        });
+        mermaid.initialize({ startOnLoad: false, theme: 'default' });
+
+        // 3. Render MathJax
+        function renderMath() {
+            if (window.MathJax && window.MathJax.typesetPromise) {
+                window.MathJax.typesetPromise([document.getElementById('content')]).catch(err => console.error(err));
+            } else {
+                setTimeout(renderMath, 100);
+            }
+        }
+        renderMath();
+
+        // 4. Lightbox Zoom & Pan cho Mermaid (Trải nghiệm người dùng cao cấp)
+        function initLightbox() {
+            const diagrams = document.querySelectorAll('.mermaid svg');
+            diagrams.forEach(svg => {
+                svg.parentElement.addEventListener('click', function() {
+                    const modal = document.createElement('div');
+                    modal.style.position = 'fixed';
+                    modal.style.top = '0'; modal.style.left = '0'; 
+                    modal.style.width = '100vw'; modal.style.height = '100vh';
+                    modal.style.backgroundColor = 'rgba(15, 23, 42, 0.95)';
+                    modal.style.backdropFilter = 'blur(10px)';
+                    modal.style.zIndex = '9999';
+                    modal.style.display = 'flex';
+                    modal.style.justifyContent = 'center';
+                    modal.style.alignItems = 'center';
+                    modal.style.cursor = 'grab'; // Biểu tượng bàn tay có thể kéo
+                    modal.style.opacity = '0';
+                    modal.style.transition = 'opacity 0.3s ease';
+                    
+                    const clone = svg.cloneNode(true);
+                    clone.style.width = '90%'; clone.style.height = '90%';
+                    clone.style.maxWidth = '1600px';
+                    clone.style.background = '#ffffff';
+                    clone.style.padding = '40px';
+                    clone.style.borderRadius = '20px';
+                    clone.style.boxShadow = '0 25px 50px rgba(0,0,0,0.5)';
+                    clone.style.transition = 'transform 0.1s ease-out';
+                    
+                    let currentScale = 1;
+                    let translateX = 0;
+                    let translateY = 0;
+                    
+                    let isDragging = false;
+                    let startX, startY;
+                    let hasDragged = false; // Phân biệt giữa click (đóng) và kéo (pan)
+                    
+                    function updateTransform() {
+                        clone.style.transform = `translate(${translateX}px, ${translateY}px) scale(${currentScale})`;
+                    }
+                    updateTransform();
+                    
+                    modal.appendChild(clone);
+                    document.body.appendChild(modal);
+                    
+                    // Hiệu ứng Fade in
+                    requestAnimationFrame(() => {
+                        modal.style.opacity = '1';
+                    });
+                    
+                    // 1. Phóng to / Thu nhỏ bằng chuột
+                    modal.addEventListener('wheel', (e) => {
+                        e.preventDefault();
+                        if (e.deltaY < 0) {
+                            currentScale += 0.15;
+                        } else {
+                            currentScale -= 0.15;
+                        }
+                        currentScale = Math.max(0.5, Math.min(currentScale, 5));
+                        updateTransform();
+                    });
+                    
+                    // 2. Kéo thả để xem góc khuất (Pan)
+                    modal.addEventListener('mousedown', (e) => {
+                        isDragging = true;
+                        hasDragged = false;
+                        startX = e.clientX - translateX;
+                        startY = e.clientY - translateY;
+                        modal.style.cursor = 'grabbing';
+                        clone.style.transition = 'none'; // Tắt hiệu ứng mượt để kéo không bị trễ (lag)
+                    });
+                    
+                    modal.addEventListener('mousemove', (e) => {
+                        if (!isDragging) return;
+                        const newX = e.clientX - startX;
+                        const newY = e.clientY - startY;
+                        // Chống click rung tay (phải kéo hơn 3 pixel mới tính là di chuyển ảnh)
+                        if (Math.abs(newX - translateX) > 3 || Math.abs(newY - translateY) > 3) {
+                            hasDragged = true;
+                        }
+                        translateX = newX;
+                        translateY = newY;
+                        updateTransform();
+                    });
+                    
+                    window.addEventListener('mouseup', () => {
+                        if (isDragging) {
+                            isDragging = false;
+                            modal.style.cursor = 'grab';
+                            clone.style.transition = 'transform 0.1s ease-out'; // Bật lại hiệu ứng cho Zoom
+                        }
+                    });
+                    
+                    // 3. Đóng ảnh khi Click (Nhưng bỏ qua nếu người dùng vừa thực hiện thao tác kéo ảnh)
+                    modal.addEventListener('click', (e) => {
+                        if (!hasDragged) {
+                            modal.style.opacity = '0';
+                            clone.style.transition = 'transform 0.3s ease';
+                            clone.style.transform = `translate(${translateX}px, ${translateY}px) scale(0.5)`;
+                            setTimeout(() => modal.remove(), 300);
+                        }
+                        hasDragged = false; // Reset trạng thái
+                    });
+                });
+            });
+        }
+
+        // 5. Chuyển đổi giữa 2 thế giới (Tabs)
+        let isMermaidRendered = false;
+        function switchView(view) {
+            document.getElementById('btn-sim').classList.remove('active');
+            document.getElementById('btn-report').classList.remove('active');
+            
+            if (view === 'sim') {
+                document.getElementById('btn-sim').classList.add('active');
+                document.getElementById('view-simulator').style.display = 'flex';
+                document.getElementById('view-report').style.display = 'none';
+            } else {
+                document.getElementById('btn-report').classList.add('active');
+                document.getElementById('view-simulator').style.display = 'none';
+                document.getElementById('view-report').style.display = 'block';
+                
+                // Trì hoãn render Mermaid cho đến khi Tab Báo cáo thực sự hiện lên
+                if (!isMermaidRendered) {
+                    mermaid.init(undefined, document.querySelectorAll('.mermaid'));
+                    setTimeout(initLightbox, 500); // Gắn sự kiện click sau khi vẽ xong
+                    isMermaidRendered = true;
+                }
+            }
+        }
+    </script>
+    </div> <!-- End view-report -->
+</body>
+</html>

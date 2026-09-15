@@ -1,0 +1,5 @@
+QUARTUS_VERSION = "13.0"
+DATE = "13:37:30  September 12, 2026"
+
+# Revisions
+PROJECT_REVISION = "project_2_SDRAM_VGA"

@@ -1,0 +1,3 @@
+@echo off
+echo Starting Modelsim simulation...
+vsim -do sim.do
